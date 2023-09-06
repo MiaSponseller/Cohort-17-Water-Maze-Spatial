@@ -1,0 +1,100 @@
+---
+title: "Cohort 17 - Water Maze, Spatial (8/14/2023)"
+output:
+  html_document:
+    embed_resources: true
+    standalone: true
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+cohort17 = read.csv("/Users/miasponseller/Desktop/MIA_08.14.2023_Spatial_W-Maze.Coh17.xlsx - Spatial.csv")
+```
+
+```{r}
+# rename column containing CIPL
+cohort17["CIPL"] = cohort17["Platform...CIPL"]
+```
+
+# Within day performance for each rat
+```{r}
+
+# Group data by rat number (Animal) and then split into a list
+rats_grouped = cohort17 %>% group_by(Animal)
+rat_list = group_split(rats_grouped)
+
+# Day counter for each rat
+number_day = vector("integer", length(rat_list))
+
+# Loop through the list of rat dataframes
+for (i in seq_along(rat_list)) 
+  {
+  trials = rat_list[[i]]
+  
+  # Divide trials into days, groups of 6
+  num_days = ceiling(nrow(trials) / 6)
+  day = split(trials, rep(1:num_days, each = 6, length.out = nrow(trials)))
+  
+  # Loop through each day and create a scatter plot for each rat.
+  for (j in seq_along(day)) 
+    {
+    cipl_trials_day = day[[j]]
+    
+    # Increment day counter for each rat
+    number_day[i] = number_day[i] + 1
+    current_day = number_day[i]
+    
+    # print plot for CIPL score across trials for each rat, for each day
+    plt =  ggplot(cipl_trials_day, aes(x = Trial, y = CIPL)) +
+    geom_point() +
+    labs(title = paste0("CIPL Across Trials for ", unique(trials$Animal), " - Day ", current_day))
+      
+    print(plt)
+    }
+}
+
+```
+
+# Across day performance for each rat
+```{r}
+apply_to_list = function(df)
+{
+  rat_num = unique(df$Animal)
+  df %>% 
+    mutate(Group = ((Trial - 1) %% 6) + 1) %>% 
+    group_by(Group) %>% 
+    summarize(Average = mean(CIPL)) %>% 
+    ggplot(aes(x = Group, y = Average)) +
+             geom_point() + 
+             labs(title = paste("Daily CIPL Average for", rat_num), x = "Day", y = "CIPL Average")
+}
+
+cipl_day_average_plt_list = lapply(rat_list, apply_to_list)
+
+for (i in seq_along(cipl_day_average_plt_list))
+{
+  print(cipl_day_average_plt_list[[i]])
+}
+```
+
+# Average CIPL score for each day, across all rats
+```{r}
+# Create a new column called day_num, showing which day the trial happened on
+cohort17$day_num = (cohort17$Trial -1) %% 6 + 1
+
+# calculate average CIPL score for all rows with same day_num and append to list
+average_cipl_day = cohort17 %>% 
+  group_by(day_num) %>% 
+  summarize(avg_cipl = mean(CIPL))
+
+# create a plot showing the average CIPL score for each day
+ggplot(average_cipl_day, aes(x = day_num, y = avg_cipl)) + 
+  geom_point() + 
+  labs(title = "Average Daily CIPL Across All Rats", x = "Day", y = "Average CIPL")
+```
+
+
